@@ -310,6 +310,17 @@ function love.update(dt)
 				end
 	        end
 	        
+	        -- Check for enemy collisions
+	        for i,v in ipairs(enemies.onscreen) do
+				local enemywidth = (enemies.types[v.type].width*v.scale.x)/2
+				local enemyheight = (enemies.types[v.type].height*v.scale.y)/2		
+				--Check for enemy-player
+				if rectRectCollision(v.x, v.y, enemies.types[v.type].width, enemies.types[v.type].height,player.x-widthoffset/2, player.y, widthoffset, heightoffset) then
+					player.health = player.health - v.maxhealth
+					v.health = 0
+				end
+	        end
+	        
 	        for i,v in ipairs(projectiles.playershots) do
 	            --update projectile movement
 	            v.position.y = v.position.y - lengthdir_y(v.v, math.deg(v.direction))*dt
@@ -337,43 +348,33 @@ function love.update(dt)
 							v.health = v.health - c.power
 						end
 					end
-					
-					--Check for enemy-player
-					if v.y <= 400 then
-						if rectRectCollision(v.x, v.y, enemies.types[v.type].width, enemies.types[v.type].height,player.x-widthoffset/2, player.y, widthoffset, heightoffset) then
-							player.health = player.health - v.maxhealth
-							v.health = 0
-						end
-					end
 	            end
-	            
-	            for i=#enemies.onscreen,1,-1 do --do this again with projectiles.playershots
-					if enemies.onscreen[i].health <= 0 then
-						player.score = player.score + enemies.onscreen[i].score
-						table.insert(powerups.onscreen, {type=1,ammo=enemies.onscreen[i].ammo, x=enemies.onscreen[i].x+enemies.types[enemies.onscreen[i].type].width/2, y=enemies.onscreen[i].y, live=true})
-						local expl = {animation = newAnimation(explosion, 128, 128, 0.2, 10), x=enemies.onscreen[i].x-enemies.types[enemies.onscreen[i].type].width/2, y=enemies.onscreen[i].y-enemies.types[enemies.onscreen[i].type].height/2, live=true}
-						expl.animation:setMode("once")
-						table.insert(explosions, expl)
-						table.remove(enemies.onscreen, i)
-					end
-				end
-				
-				for i=#projectiles.playershots, 1,-1 do
-					if projectiles.playershots[i].live == false then
-						table.remove(projectiles.playershots, i)
-					end
-				end
-				
-				for i=#powerups.onscreen, 1, -1 do
-					if rectRectCollision(powerups.onscreen[i].x, powerups.onscreen[i].y, powerups.types[powerups.onscreen[i].type].width,powerups.types[powerups.onscreen[i].type].height, player.x-widthoffset/2, player.y, widthoffset, heightoffset) then
-						powerups.onscreen[i].live = false
-						player.ammo = player.ammo + powerups.onscreen[i].ammo
-					end
-					if powerups.onscreen[i].live == false then
-						table.remove(powerups.onscreen, i)
-					end
-				end
 	        end
+	        for i=#enemies.onscreen,1,-1 do --do this again with projectiles.playershots
+				if enemies.onscreen[i].health <= 0 then
+					player.score = player.score + enemies.onscreen[i].score
+					table.insert(powerups.onscreen, {type=1,ammo=enemies.onscreen[i].ammo, x=enemies.onscreen[i].x+enemies.types[enemies.onscreen[i].type].width/2, y=enemies.onscreen[i].y, live=true})
+					local expl = {animation = newAnimation(explosion, 128, 128, 0.2, 10), x=enemies.onscreen[i].x-enemies.types[enemies.onscreen[i].type].width/2, y=enemies.onscreen[i].y-enemies.types[enemies.onscreen[i].type].height/2, live=true}
+					expl.animation:setMode("once")
+					table.insert(explosions, expl)
+					table.remove(enemies.onscreen, i)
+				end
+			end
+			
+			for i=#projectiles.playershots, 1,-1 do
+				if projectiles.playershots[i].live == false then
+					table.remove(projectiles.playershots, i)
+				end
+			end
+	        for i=#powerups.onscreen, 1, -1 do
+				if rectRectCollision(powerups.onscreen[i].x, powerups.onscreen[i].y, powerups.types[powerups.onscreen[i].type].width,powerups.types[powerups.onscreen[i].type].height, player.x-widthoffset/2, player.y, widthoffset, heightoffset) then
+					powerups.onscreen[i].live = false
+					player.ammo = player.ammo + powerups.onscreen[i].ammo
+				end
+				if powerups.onscreen[i].live == false then
+					table.remove(powerups.onscreen, i)
+				end
+			end
 	    end
 	end
 end
