@@ -144,7 +144,7 @@ function love.load()
         " ",
         "Aim using the mouse.",
         "Left click to fire.",
-        "Escape to pause."
+        "Escape to pause.",
         " ",
         "Kill aliens to get more ammo"
     }
