@@ -11,7 +11,8 @@ function love.load()
 	fonts = {
         title= { 
             normal = love.graphics.newFont("fonts/clonewars.ttf"),
-            larger = love.graphics.newFont("fonts/clonewars.ttf", 36)
+            larger = love.graphics.newFont("fonts/clonewars.ttf", 36),
+            largest = love.graphics.newFont("fonts/clonewars.ttf", 46)
         },
         normal=love.graphics.newFont("fonts/DroidSans.ttf"),
         bold= {
@@ -39,6 +40,8 @@ function love.load()
     titlemenu.width = titlemenu.play:getWidth()
     titlemenu.height = titlemenu.play:getHeight()
     explosion = love.graphics.newImage("images/explosions.png")
+    explosionwidth = 64
+    explosionheight = 64
     explosions = {}
     ui = {
         health = love.graphics.newImage("images/health.png"),
@@ -57,6 +60,34 @@ function love.load()
     for i,v in ipairs(powerups.types) do
 		v.width = v.sprite:getWidth()
 		v.height = v.sprite:getHeight()
+    end
+    
+    ranks = {
+		{name="Airman", image},
+		{name="Airman First Class", image},
+		{name="Sergeant", image},
+		{name="Staff Sergeant", image},
+		{name="Technical Sergeant", image},
+		{name="Master Sergeant", image},
+		{name="Senior Master Sergeant", image},
+		{name="Special Master Sergeant", image},
+		{name="Chief Master Sergeant", image},
+		{name="Command Chief Master Sergeant", image},
+		{name="Chief Master Sergeant of the Air Force", image},
+		{name="Second Liutenant", image},
+		{name="First Lieutenant", image},
+		{name="Captain", image},
+		{name="Major", image},
+		{name="Lieutenant Colonel", image},
+		{name="Colonel", image},
+		{name="Brigadier General", image},
+		{name="Major General", image},
+		{name="Lieutenant General", image},
+		{name="General Air Force Chief of Staff", image},
+		{name="General of the Air Force", image}
+    }
+    for i,v in ipairs(ranks) do
+		v.image = love.graphics.newImage("images/badges/"..i..".png")
     end
     
 	--initialize useful variables
@@ -90,8 +121,8 @@ function love.load()
                 width, height
             },
         },
-        x=screenWidth/2,
-        y=screenHeight+50,
+        x=400,
+        y=650,
         health = 100,
         ammo = 50,
         score = 0,
@@ -182,7 +213,7 @@ function love.update(dt)
 	    end
 	    
 	    if gamemode == "getready" then
-	        if mx < screenWidth then
+	        if mx < 800 then
 	            mx = mx+500*dt
 	        else
 	            gamemode = "startgame"
@@ -203,7 +234,7 @@ function love.update(dt)
 	        if mx > 500 then
 	            mx = mx-200*dt
 	        else
-	            player.x = screenWidth/2
+	            player.x = 400
 	            player.y = mx-20
 	            shotdelay = 0
 	            gamemode = "game"
@@ -221,7 +252,7 @@ function love.update(dt)
 	        end
 	        
 	        if player.health <= 0 and player.live == true then
-				local expl = {animation = newAnimation(explosion, 128, 128, 0.2, 10), x=player.x, y=player.y, live=true}
+				local expl = {animation = newAnimation(explosion, 128, 128, 0.2, 10), x=player.x-explosionwidth, y=player.y-explosionheight, live=true}
 				expl.animation:setMode("once")
 				table.insert(explosions, expl)
 				player.x = 1500
@@ -233,7 +264,7 @@ function love.update(dt)
 	        if love.keyboard.isDown("a") and player.x > widthoffset/2 then
 	            player.x = player.x - player.speed*dt
 	            player.state = "left"
-	        elseif love.keyboard.isDown("d") and player.x < screenWidth-widthoffset/2 then
+	        elseif love.keyboard.isDown("d") and player.x < 800-widthoffset/2 then
 	            player.x = player.x + player.speed*dt
 	            player.state = "right"
 	        else
@@ -241,7 +272,7 @@ function love.update(dt)
 	        end
 	        if love.keyboard.isDown("w") and player.y > 0 then
 	            player.y = player.y - player.speed*dt
-	        elseif love.keyboard.isDown("s") and player.y < screenHeight-heightoffset then
+	        elseif love.keyboard.isDown("s") and player.y < 600-heightoffset then
 	            player.y = player.y + player.speed*dt
 	        end
 	        
@@ -290,12 +321,12 @@ function love.update(dt)
 	        --update enemy movements
 	        for i,v in ipairs(enemies.onscreen) do
 				v.y = v.y + v.speed*v.scale.y*dt
-				if v.y < screenHeight/2 and v.y > 0 then
-					v.scale.y = 0.75 + 0.5*(v.y/(screenHeight/2))
+				if v.y < 300 and v.y > 0 then
+					v.scale.y = 0.75 + 0.5*(v.y/(300))
 					v.scale.x = v.scale.y
 				end
 				--remove out of bounds enemies
-				if v.y > screenHeight then
+				if v.y > 600 then
 					v.health = 0
 				end
 	        end
@@ -305,7 +336,7 @@ function love.update(dt)
 				v.y = v.y + 100*dt
 				
 				--remove out of bounds powerups
-				if v.y > screenHeight then
+				if v.y > 600 then
 					v.live = false
 				end
 	        end
@@ -332,7 +363,7 @@ function love.update(dt)
 	            end
 	            
 	            --Remove dead projectiles
-	            if v.position.y < -5 or v.position.x < -5 or v.position.x > screenWidth+5 then
+	            if v.position.y < -5 or v.position.x < -5 or v.position.x > 805 then
 	                table.remove(v, i)
 	            end
 	            
@@ -354,7 +385,7 @@ function love.update(dt)
 				if enemies.onscreen[i].health <= 0 then
 					player.score = player.score + enemies.onscreen[i].score
 					table.insert(powerups.onscreen, {type=1,ammo=enemies.onscreen[i].ammo, x=enemies.onscreen[i].x+enemies.types[enemies.onscreen[i].type].width/2, y=enemies.onscreen[i].y, live=true})
-					local expl = {animation = newAnimation(explosion, 128, 128, 0.2, 10), x=enemies.onscreen[i].x-enemies.types[enemies.onscreen[i].type].width/2, y=enemies.onscreen[i].y-enemies.types[enemies.onscreen[i].type].height/2, live=true}
+					local expl = {animation = newAnimation(explosion, 128, 128, 0.2, 10), x=enemies.onscreen[i].x+enemies.types[enemies.onscreen[i].type].width/2-explosionwidth, y=enemies.onscreen[i].y+enemies.types[enemies.onscreen[i].type].height/2-explosionheight, live=true}
 					expl.animation:setMode("once")
 					table.insert(explosions, expl)
 					table.remove(enemies.onscreen, i)
@@ -383,7 +414,7 @@ function love.draw()
     love.graphics.setFont(fonts.normal)
     love.graphics.draw(bg.image, bg.x1, bg.y1)
     love.graphics.draw(bg.image, bg.x2, bg.y2)
-    love.graphics.draw(earth.image, screenWidth/2+11, screenHeight+earth.height-1310, math.rad(earth.rotation), 1, 1, earth.width/2, earth.height/2)
+    love.graphics.draw(earth.image, 411, 600+earth.height-1310, math.rad(earth.rotation), 1, 1, earth.width/2, earth.height/2)
     if debugmode then
 		love.graphics.print("FPS: "..love.timer.getFPS(), 10, 20)
 		love.graphics.print( "Mouse X: ".. love.mouse.getX(), 10, 35 )
@@ -395,28 +426,28 @@ function love.draw()
     end
     
     if gamemode == "menu" then
-        love.graphics.draw(titletext.image, screenWidth/2-titletext.width/2, 65)
-        love.graphics.draw(titlemenu.play, screenWidth/2-titlemenu.width/2, 250)
-        love.graphics.draw(titlemenu.help, screenWidth/2-titlemenu.width/2, 270+titlemenu.height)
-        love.graphics.draw(titlemenu.quit, screenWidth/2-titlemenu.width/2, 290+titlemenu.height*2)
+        love.graphics.draw(titletext.image, 400-titletext.width/2, 65)
+        love.graphics.draw(titlemenu.play, 400-titlemenu.width/2, 250)
+        love.graphics.draw(titlemenu.help, 400-titlemenu.width/2, 270+titlemenu.height)
+        love.graphics.draw(titlemenu.quit, 400-titlemenu.width/2, 290+titlemenu.height*2)
         
     elseif gamemode == "getready" then
-        if mx+screenWidth/2+titletext.width/2 > 0 then
-            love.graphics.draw(titletext.image, screenWidth/2-titletext.width/2+mx, 65)
-            love.graphics.draw(titlemenu.play, screenWidth/2-titlemenu.width/2-mx, 250)
-            love.graphics.draw(titlemenu.help, screenWidth/2-titlemenu.width/2+mx, 270+titlemenu.height)
-            love.graphics.draw(titlemenu.quit, screenWidth/2-titlemenu.width/2-mx, 290+titlemenu.height*2)
+        if mx+400+titletext.width/2 > 0 then
+            love.graphics.draw(titletext.image, 400-titletext.width/2+mx, 65)
+            love.graphics.draw(titlemenu.play, 400-titlemenu.width/2-mx, 250)
+            love.graphics.draw(titlemenu.help, 400-titlemenu.width/2+mx, 270+titlemenu.height)
+            love.graphics.draw(titlemenu.quit, 400-titlemenu.width/2-mx, 290+titlemenu.height*2)
         end
         
     elseif gamemode == "startgame" then
         
-        love.graphics.draw(player.images.normal.sprite, screenWidth/2, mx-20, 0, 1,1,player.images.normal.width/2, 0)
+        love.graphics.draw(player.images.normal.sprite, 400, mx-20, 0, 1,1,player.images.normal.width/2, 0)
         love.graphics.draw(ui.health, 30,mx+60)
         love.graphics.draw(ui.ammo, 180, mx+60)
         love.graphics.setFont(fonts.title.larger)
         love.graphics.print(player.health.."%", 65, mx+83)
         love.graphics.print(player.ammo, 215, mx+83)
-        love.graphics.printf(player.score, screenWidth-150, screenHeight-mx-75, 130, "right")
+        love.graphics.printf(player.score, 650, 600-mx-75, 130, "right")
         
     elseif gamemode == "game" then
     
@@ -443,12 +474,12 @@ function love.draw()
         for i,v in ipairs(enemies.onscreen) do
 			if debugmode == true then
 				love.graphics.rectangle("fill", v.x, v.y, enemies.types[v.type].width*v.scale.x, enemies.types[v.type].height*v.scale.y)
+				--Draw health bars
+				love.graphics.setColor(108,213,87,100)
+				local health = (enemies.types[v.type].width-3)*(v.health/v.maxhealth)
+				love.graphics.rectangle("fill", v.x+3, v.y-10, health*v.scale.x, 5)
 			end
 			love.graphics.draw(enemies.types[v.type].sprite, v.x, v.y, v.rotation, v.scale.x, v.scale.y, 0, 0)
-			--Draw health bars
-			love.graphics.setColor(108,213,87,100)
-			local health = (enemies.types[v.type].width-3)*(v.health/v.maxhealth)
-			love.graphics.rectangle("fill", v.x+3, v.y-10, health*v.scale.x, 5)
         end
         
         --Draw all projectiles
@@ -464,14 +495,37 @@ function love.draw()
         love.graphics.draw(ui.health, 30,mx+60)
         love.graphics.draw(ui.ammo, 180, mx+60)
         love.graphics.setFont(fonts.title.larger)
-        love.graphics.print(player.health.."%", 65, mx+83)
+        if player.health >= 0 then
+			love.graphics.print(player.health.."%", 65, mx+83)
+		else 
+			love.graphics.print("0%", 65, mx+83)
+		end
         love.graphics.print(player.ammo, 215, mx+83)
-        love.graphics.printf(player.score, screenWidth-150, screenHeight-mx-75, 130, "right")
+        love.graphics.printf(player.score, 650, 600-mx-75, 130, "right")
     
     elseif gamemode == "gameover" then
 		love.graphics.setFont(fonts.title.larger)
-		love.graphics.print("GAME OVER", 300, screenHeight/2-50)
-        love.graphics.print("Score: "..player.score, 300, screenHeight/2)
+		love.graphics.print("GAME OVER", 300, 150)
+        love.graphics.print("Score: "..player.score, 300, 190)
+        love.graphics.print("Rank:", 300, 250)
+        local level = round(player.score/3000,0)
+        love.graphics.setFont(fonts.title.largest)
+        
+        if level <= #ranks and level ~= 0 then
+			local rank = ranks[level]
+			love.graphics.draw(rank.image, 320, 270)
+			local ranklength = fonts.title.largest:getWidth(rank.name)
+			love.graphics.printf(rank.name, 400-ranklength/2, 480, 725, "left")
+		elseif level == 0 then
+			local rank = "Airman Basic"
+			local ranklength = fonts.title.largest:getWidth(rank)
+			love.graphics.printf(rank, 400-ranklength/2, 290, 725, "left")
+		elseif level > #ranks then
+			local rank = ranks[#ranks]
+			love.graphics.draw(rank.image, 320, 270)
+			local ranklength = fonts.title.largest:getWidth(rank.name)
+			love.graphics.printf(rank.name, 400-ranklength/2, 352, 725, "left")
+		end
     end
     
     if help then
@@ -528,6 +582,10 @@ function love.keypressed(key)
 		end
     end
     
+    if key == "k" then
+		player.health = 0
+    end
+    
     if key == " " then
 		table.insert(enemies.onscreen, createRandEnemy())
     end
@@ -537,7 +595,7 @@ function love.mousereleased(x, y, button)
 	if pause == false then
 	    if button == 'l' then
 	        if gamemode == "menu" and not help then
-	            if x >= screenWidth/2-titlemenu.width/2 and x <= screenWidth/2+titlemenu.width/2 then
+	            if x >= 400-titlemenu.width/2 and x <= 400+titlemenu.width/2 then
 	                if y >= 250 and y <= 250+titlemenu.height then
 	                    gamemode = "getready"
 	                elseif y >= 270+titlemenu.height and y <= 270+titlemenu.height*2 then
@@ -552,7 +610,7 @@ function love.mousereleased(x, y, button)
 	            end
 	        end
 	        
-	        if gamemode == "game" and player.ammo > 0 and shotdelay <=0 then
+	        if gamemode == "game" and player.ammo > 0 and shotdelay <=0 and y <= player.y then
 	            table.insert(projectiles.playershots, {
 	                start={
 	                    x=player.x,
