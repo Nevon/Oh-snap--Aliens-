@@ -567,19 +567,11 @@ end
 
 function love.keypressed(key)
     if key == "escape" and gamemode == "game" then
-			if pause then
-				pause = false
-			else
-				pause = true
-			end
+			pause = not pause
     end
     
     if key == "tab" then
-		if debugmode == false then
-			debugmode = true
-		elseif debugmode == true then
-			debugmode = false
-		end
+		debugmode = not debugmode
     end
     
     if key == "k" then
