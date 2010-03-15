@@ -37,8 +37,45 @@ function createRandEnemy()
 		maxhealth = hp,
 		health = hp,
 		score = (hp*enemies.types[species].score)/10,
-		ammo = randint(2,3)
+		ammo = randint(2,3),
+        live = true
 	}
+end
+
+function createRandAsteroid()
+    local randint = math.random
+    local starty = randint(0, 600)
+    local targety = randint(0,600)
+    local scale = randint(30, 75)/100
+    local startx = 0
+    local targetx = 0
+    if starty%2 == 1 then
+        startx = -128
+        targetx = 928
+    else
+        startx = 928
+        targetx = -128
+    end
+    table.insert(projectiles.debris, {
+        start={
+            x = startx,
+            y = starty
+        }, 
+        target = {
+            x=targetx,
+            y=targety
+        },
+        position={
+            x=startx,
+            y=starty
+        },
+        direction = math.atan2((targety-starty),(targetx-startx)),
+        rotation = randint(0, 360),
+        v=100,
+        live = true,
+        type=1,
+        scale = scale
+        })
 end
 
 function circRectCollision(enemyx, enemyy, enemywidth, enemyheight, pointx, pointy, radius)
@@ -54,6 +91,13 @@ function circRectCollision(enemyx, enemyy, enemywidth, enemyheight, pointx, poin
 	   root( pow( enemyx+enemywidth-pointx, 2 ) + pow( enemyy+enemyheight-pointy, 2 ) ) < radius then
 		return true
 	end
+end
+
+function circCircCollision(x1,y1,r1,x2,y2,r2)
+    local root = math.sqrt
+    local pow = math.pow
+    local distance = root( pow( x1 - x2 , 2 ) + pow( y1-y2, 2 ) )
+    if distance < r1+r2 then return true end
 end
 
 function rectRectCollision(enemyx, enemyy, enemywidth, enemyheight, playerx, playery, playerwidth, playerheight)

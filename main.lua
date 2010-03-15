@@ -90,6 +90,15 @@ function love.load()
 		v.image = love.graphics.newImage("images/badges/"..i..".png")
     end
     
+    debris = {
+        {image=love.graphics.newImage("images/asteroid.png"),width, height}
+    }
+    
+    for i,v in ipairs(debris) do
+        v.width = v.image:getWidth()
+        v.height = v.image:getHeight()
+    end
+    
 	--initialize useful variables
 	screenHeight = love.graphics.getHeight()
 	screenWidth = love.graphics.getWidth()
@@ -141,7 +150,8 @@ function love.load()
     player.images.shot.height = player.images.shot.sprite:getHeight()
     
     projectiles = {
-        playershots = {}
+        playershots = {},
+        debris = {}
     }
     
     enemies = {
@@ -185,6 +195,8 @@ function love.load()
         intro = love.audio.newSource("audio/music/intro.ogg", stream),
         music = love.audio.newSource("audio/music/music.ogg", stream),
         rlaunch = love.sound.newSoundData("audio/sounds/launch.ogg", static),
+        explosion = love.sound.newSoundData("audio/sounds/explosion.ogg", static),
+        hit = love.sound.newSoundData("audio/sounds/hit.ogg", static),
         queue = {}
     }
     sounds.intro:setLooping(true)
@@ -260,6 +272,17 @@ function love.update(dt)
 				timer = 2
 				player.live = false
 	        end
+            
+            if player.state == "normal" then
+				widthoffset = player.images.normal.width
+				heightoffset = player.images.normal.height
+			elseif player.state == "left" then
+				widthoffset = player.images.left.width
+				heightoffset = player.images.left.height
+			elseif player.state == "right" then
+				widthoffset = player.images.right.width
+				heightoffset = player.images.right.height
+			end
 	        
 	        if love.keyboard.isDown("a") and player.x > widthoffset/2 then
 	            player.x = player.x - player.speed*dt
@@ -275,17 +298,6 @@ function love.update(dt)
 	        elseif love.keyboard.isDown("s") and player.y < 600-heightoffset then
 	            player.y = player.y + player.speed*dt
 	        end
-	        
-	        if player.state == "normal" then
-				widthoffset = player.images.normal.width
-				heightoffset = player.images.normal.height
-			elseif player.state == "left" then
-				widthoffset = player.images.left.width
-				heightoffset = player.images.left.height
-			elseif player.state == "right" then
-				widthoffset = player.images.right.width
-				heightoffset = player.images.right.height
-			end
 			
 			if timer <= 0 then
 				if enemies.tocreate > 0 then
@@ -298,6 +310,9 @@ function love.update(dt)
 					currentwave = currentwave+1
 					enemies.tocreate = stage*currentwave
 				end
+                if #projectiles.debris <= 2 then
+                    createRandAsteroid()
+                end
 				if player.health <= 0 then
 					gamemode = "gameover"
 				end
@@ -336,16 +351,47 @@ function love.update(dt)
 					v.live = false
 				end
 	        end
+            
+            --update debris movements
+            for i,v in ipairs(projectiles.debris) do
+                v.position.y = v.position.y - lengthdir_y(v.v, math.deg(v.direction))*dt*v.scale
+                v.position.x = v.position.x + lengthdir_x(v.v, math.deg(v.direction))*dt*v.scale
+                if v.start.y%2 == 0 then
+                    v.rotation = v.rotation+10*dt
+                else
+                    v.rotation = v.rotation-10*dt
+                end
+                
+                local astrowidthoffset = debris[v.type].width*v.scale/2
+                local astroheightoffset = debris[v.type].height*v.scale/2
+                
+                --Check for debris-player collision
+                if circRectCollision(player.x,player.y, widthoffset, heightoffset, v.position.x+astrowidthoffset, v.position.y+astrowidthoffset, (astrowidthoffset+astroheightoffset)/2) then
+                    player.health = 0
+                end
+            end
 	        
 	        -- Check for enemy collisions
 	        for i,v in ipairs(enemies.onscreen) do
 				local enemywidth = (enemies.types[v.type].width*v.scale.x)/2
 				local enemyheight = (enemies.types[v.type].height*v.scale.y)/2		
-				--Check for enemy-player
+				
+                --Check for enemy-player
 				if rectRectCollision(v.x, v.y, enemies.types[v.type].width, enemies.types[v.type].height,player.x-widthoffset/2, player.y, widthoffset, heightoffset) then
-					player.health = player.health - v.maxhealth
+                    player.health = player.health - v.maxhealth
 					v.health = 0
 				end
+                
+                for n,c in ipairs(projectiles.debris) do
+                    --Check for enemy-debris
+                    local widthoffset = debris[c.type].width*c.scale/2
+                    local heightoffset = debris[c.type].height*c.scale/2
+                    local enemywidth = enemies.types[v.type].width*v.scale.x
+					local enemyheight = enemies.types[v.type].height*v.scale.y
+                    if circRectCollision(v.x, v.y, enemies.types[v.type].width, enemies.types[v.type].height, c.position.x+widthoffset, c.position.y+heightoffset, (widthoffset+heightoffset)/2) then
+                        v.live = false
+                    end
+                end
 	        end
 	        
 	        for i,v in ipairs(projectiles.playershots) do
@@ -357,24 +403,31 @@ function love.update(dt)
 	            if v.v < 250 then
 	                v.v = v.v*1.1+1*dt
 	            end
-	            
-	            --Remove dead projectiles
-	            if v.position.y < -5 or v.position.x < -5 or v.position.x > 805 then
-	                table.remove(v, i)
-	            end
+                
+                for n,c in ipairs(projectiles.debris) do
+                    local widthoffset = debris[c.type].width*c.scale/2
+                    local heightoffset = debris[c.type].height*c.scale/2
+                    if circCircCollision(v.position.x, v.position.y, player.images.shot.width/2, c.position.x, c.position.y, (widthoffset+heightoffset)/2) then
+                        addSound(sounds.hit)
+                        v.live = false
+                    end
+                end
 	            
 	            -- Check for enemy collisions
-	            for i,v in ipairs(enemies.onscreen) do
-					local enemywidth = (enemies.types[v.type].width*v.scale.x)/2
-					local enemyheight = (enemies.types[v.type].height*v.scale.y)/2
+	            for n,c in ipairs(enemies.onscreen) do
+					local enemywidth = (enemies.types[c.type].width*c.scale.x)/2
+					local enemyheight = (enemies.types[c.type].height*c.scale.y)/2
 					
-					--Check for playershot-enemy
-					for n,c in ipairs(projectiles.playershots) do
-						if circRectCollision(v.x, v.y, enemies.types[v.type].width, enemies.types[v.type].height, c.position.x, c.position.y, player.images.shot.width/2) then
-							c.live = false
-							v.health = v.health - c.power
-						end
-					end
+                    if circRectCollision(c.x, c.y, enemies.types[c.type].width, enemies.types[c.type].height, v.position.x, v.position.y, player.images.shot.width/2) then
+                        addSound(sounds.hit)
+                        v.live = false
+                        c.health = c.health - v.power
+                    end
+	            end
+                
+                --Remove dead projectiles
+	            if v.position.y < -5 or v.position.x < -5 or v.position.x > 805 then
+	                v.live = false
 	            end
 	        end
             
@@ -386,11 +439,20 @@ function love.update(dt)
 					local expl = {animation = newAnimation(explosion, 128, 128, 0.2, 10), x=enemies.onscreen[i].x+enemies.types[enemies.onscreen[i].type].width/2-explosionwidth, y=enemies.onscreen[i].y+enemies.types[enemies.onscreen[i].type].height/2-explosionheight, live=true}
 					expl.animation:setMode("once")
 					table.insert(explosions, expl)
+                    addSound(sounds.explosion)
 					table.remove(enemies.onscreen, i)
-				elseif enemies.onscreen[i].y >= 664 then
+				elseif enemies.onscreen[i].y >= 664 or enemies.onscreen[i].live == false then
                     table.remove(enemies.onscreen, i)
                 end
 			end
+            
+            for i=#projectiles.debris, 1, -1 do
+                local y = projectiles.debris[i].position.y
+                local x = projectiles.debris[i].position.x
+                if  y > 800 or y < -200 or x > 1000 or x < -200 or projectiles.debris[i].live == false then
+                    table.remove(projectiles.debris, i)
+                end
+            end
 			
 			for i=#projectiles.playershots, 1,-1 do
 				if projectiles.playershots[i].live == false then
@@ -414,15 +476,19 @@ function love.draw()
     love.graphics.setFont(fonts.normal)
     love.graphics.draw(bg.image, bg.x1, bg.y1)
     love.graphics.draw(bg.image, bg.x2, bg.y2)
-    love.graphics.draw(earth.image, 411, 600+earth.height-1310, math.rad(earth.rotation), 1, 1, earth.width/2, earth.height/2)
+    love.graphics.draw(earth.image, 411, 1338, math.rad(earth.rotation), 1, 1, 1024, 1024)
     if debugmode then
 		love.graphics.print("FPS: "..love.timer.getFPS(), 10, 20)
 		love.graphics.print( "Mouse X: ".. love.mouse.getX(), 10, 35 )
 		love.graphics.print( "Mouse Y: ".. love.mouse.getY(), 10, 50 )
-		love.graphics.print( "Enemies: ".. table.getn(enemies.onscreen), 10, 65)
+		love.graphics.print( "Enemies: ".. #enemies.onscreen, 10, 65)
 		love.graphics.print( "Enemies.tocreate: ".. enemies.tocreate, 10, 80 )
 		love.graphics.print( "Stage: ".. stage, 10, 95)
 		love.graphics.print( "Wave: ".. currentwave.."/"..waves, 10, 110)
+        love.graphics.print( "Asteroids: ".. #projectiles.debris, 10, 125)
+        for i,v in ipairs(projectiles.debris) do
+            love.graphics.print(i..": ("..string.format("%.0f", v.position.x)..", "..string.format("%.0f", v.position.y)..")", 10, 125+i*15 )
+        end
     end
     
     if gamemode == "menu" then
@@ -485,6 +551,16 @@ function love.draw()
         --Draw all projectiles
         for i,v in ipairs(projectiles.playershots) do
             love.graphics.draw(player.images.shot.sprite, v.position.x, v.position.y, v.direction, 1, 1, player.images.shot.width/2, player.images.shot.height/2)
+        end
+        
+        --Draw all debris
+        for i,v in ipairs(projectiles.debris) do
+            local widthoffset = debris[v.type].width*v.scale/2
+            local heightoffset = debris[v.type].height*v.scale/2
+            love.graphics.draw(debris[v.type].image, v.position.x+widthoffset, v.position.y+heightoffset, math.rad(v.rotation), v.scale, v.scale, debris[v.type].width/2,debris[v.type].height/2 )
+            if debugmode then
+                love.graphics.rectangle("fill", v.position.x+widthoffset*0.1, v.position.y+heightoffset*0.1, widthoffset*2-widthoffset*0.2, heightoffset*2-heightoffset*0.2)
+            end
         end
         
         --Draw all explosions
@@ -576,6 +652,10 @@ function love.keypressed(key)
     
     if key == "k" then
 		player.health = 0
+    end
+    
+    if key == "l" then
+        createRandAsteroid()
     end
     
     if key == " " then
