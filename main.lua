@@ -325,10 +325,6 @@ function love.update(dt)
 					v.scale.y = 0.75 + 0.5*(v.y/(300))
 					v.scale.x = v.scale.y
 				end
-				--remove out of bounds enemies
-				if v.y > 600 then
-					v.health = 0
-				end
 	        end
 	        
 	        --update powerup movements
@@ -381,15 +377,19 @@ function love.update(dt)
 					end
 	            end
 	        end
+            
+            --Cleaning up dead enemies and projectiles
 	        for i=#enemies.onscreen,1,-1 do --do this again with projectiles.playershots
-				if enemies.onscreen[i].health <= 0 then
+				if enemies.onscreen[i].health <= 0 and enemies.onscreen[i].y < 664 then
 					player.score = player.score + enemies.onscreen[i].score
 					table.insert(powerups.onscreen, {type=1,ammo=enemies.onscreen[i].ammo, x=enemies.onscreen[i].x+enemies.types[enemies.onscreen[i].type].width/2, y=enemies.onscreen[i].y, live=true})
 					local expl = {animation = newAnimation(explosion, 128, 128, 0.2, 10), x=enemies.onscreen[i].x+enemies.types[enemies.onscreen[i].type].width/2-explosionwidth, y=enemies.onscreen[i].y+enemies.types[enemies.onscreen[i].type].height/2-explosionheight, live=true}
 					expl.animation:setMode("once")
 					table.insert(explosions, expl)
 					table.remove(enemies.onscreen, i)
-				end
+				elseif enemies.onscreen[i].y >= 664 then
+                    table.remove(enemies.onscreen, i)
+                end
 			end
 			
 			for i=#projectiles.playershots, 1,-1 do
