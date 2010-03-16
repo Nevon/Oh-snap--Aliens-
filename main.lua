@@ -565,6 +565,12 @@ function love.draw()
 		if debugmode == true then
 			love.graphics.rectangle("fill", player.x-widthoffset/2, player.y, widthoffset, heightoffset)
 		end
+        --Draw player thruster
+        love.graphics.setColorMode("modulate")
+        love.graphics.setBlendMode("additive")
+        love.graphics.draw(player.thruster, 0, 0)
+        love.graphics.setBlendMode("alpha")
+        love.graphics.setColorMode("replace")
         if player.state == "normal" then
             love.graphics.draw(player.images.normal.sprite, player.x, player.y, 0, 1,1, player.images.normal.width/2, 0)
         elseif player.state == "left" then
@@ -572,12 +578,6 @@ function love.draw()
         elseif player.state == "right" then
             love.graphics.draw(player.images.right.sprite, player.x, player.y, 0, 1,1, player.images.normal.width/2, 0)
         end
-        --Draw player thruster
-        love.graphics.setColorMode("modulate")
-        love.graphics.setBlendMode("additive")
-        love.graphics.draw(player.thruster, 0, 0)
-        love.graphics.setBlendMode("alpha")
-        love.graphics.setColorMode("replace")
         
         --Draw all powerups
         for i,v in ipairs(powerups.onscreen) do
