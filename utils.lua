@@ -73,9 +73,33 @@ function createRandAsteroid()
         rotation = randint(0, 360),
         v=100,
         live = true,
+        collide = false,
         type=1,
         scale = scale
         })
+end
+
+function createExplosion(x,y)
+    local expl = {animation = newAnimation(explosion, 128, 128, 0.2, 10), x=x-explosionwidth, y=y-explosionheight, live=true}
+    expl.animation:setMode("once")
+    table.insert(explosions, expl)
+    addSound(sounds.explosion)
+end
+
+function createFireball(x,y)
+    local _p = love.graphics.newParticleSystem(particle, 200)
+    _p:setEmissionRate(100)
+    _p:setSpeed(0, 0)
+    _p:setSize(0.5, 0.25)
+    _p:setColor(220, 105, 20, 255, 194, 30, 18, 0)
+    _p:setPosition(300, 240)
+    _p:setLifetime(0.1)
+    _p:setParticleLife(0.3)
+    _p:setDirection(0)
+    _p:setSpread(0)
+    _p:setTangentialAcceleration(0)
+    _p:setRadialAcceleration(2000)
+    table.insert(systems, _p)
 end
 
 function circRectCollision(enemyx, enemyy, enemywidth, enemyheight, pointx, pointy, radius)

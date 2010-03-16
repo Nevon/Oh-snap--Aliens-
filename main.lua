@@ -31,6 +31,7 @@ function love.load()
     earth = {image=love.graphics.newImage("images/earth.png"), width=0, height=0, rotation=0}
     earth.width=earth.image:getWidth()
     earth.height=earth.image:getHeight()
+    particle = love.graphics.newImage("images/particle.png")
     pointer = {image=love.graphics.newImage("images/pointer.png"), width, height}
     pointer.width = pointer.image:getWidth()
     pointer.height = pointer.image:getHeight()
@@ -111,6 +112,7 @@ function love.load()
     currentwave = 0
     timer = 0
     debugmode = false
+    mute = false
     player = {
         images = {
             normal = {
@@ -137,8 +139,8 @@ function love.load()
         score = 0,
         state = "normal",
         speed = 200,
-        live = true
-        
+        live = true,
+        thruster = love.graphics.newParticleSystem(particle, 200)
     }
     player.images.normal.width = player.images.normal.sprite:getWidth()
     player.images.normal.height = player.images.normal.sprite:getHeight()
@@ -148,6 +150,20 @@ function love.load()
     player.images.right.height = player.images.right.sprite:getHeight()
     player.images.shot.width = player.images.shot.sprite:getWidth()
     player.images.shot.height = player.images.shot.sprite:getHeight()
+    
+    --Configure thruster particle system
+    player.thruster:setEmissionRate(50)
+    player.thruster:setSpeed(0, 0)
+    player.thruster:setSize(0.5, 0.25)
+    player.thruster:setColor(220, 105, 20, 255, 194, 30, 18, 0)
+    player.thruster:setPosition(player.x, player.y+player.images.normal.height)
+    player.thruster:setLifetime(0.1)
+    player.thruster:setParticleLife(0.1)
+    player.thruster:setDirection(3.14)
+    player.thruster:setSpread(0)
+    player.thruster:setTangentialAcceleration(0)
+    player.thruster:setRadialAcceleration(0)
+    player.thruster:stop()
     
     projectiles = {
         playershots = {},
@@ -174,6 +190,7 @@ function love.load()
 		v.height = v.sprite:getHeight()
     end
     
+    systems = {}
     
     --text
     helpline = {
@@ -186,6 +203,7 @@ function love.load()
         "Aim using the mouse.",
         "Left click to fire.",
         "Escape to pause.",
+        "M to mute the music",
         " ",
         "Kill aliens to get more ammo"
     }
@@ -232,6 +250,10 @@ function love.update(dt)
 	            mx = 650
 	            vol = 1.0
 	        end
+            --update player thrusters
+            player.thruster:setPosition(player.x, player.y+player.images.normal.height)
+            player.thruster:start()
+            player.thruster:update(dt)
 	    end
 	    
 	    if gamemode == "startgame" then
@@ -251,6 +273,11 @@ function love.update(dt)
 	            shotdelay = 0
 	            gamemode = "game"
 	        end
+            
+            --update player thrusters
+            player.thruster:setPosition(player.x, player.y+player.images.normal.height)
+            player.thruster:start()
+            player.thruster:update(dt)
 	    end
 	    
 	    if gamemode == "game" then
@@ -264,9 +291,7 @@ function love.update(dt)
 	        end
 	        
 	        if player.health <= 0 and player.live == true then
-				local expl = {animation = newAnimation(explosion, 128, 128, 0.2, 10), x=player.x-explosionwidth, y=player.y-explosionheight, live=true}
-				expl.animation:setMode("once")
-				table.insert(explosions, expl)
+				createExplosion(player.x, player.y)
 				player.x = 1500
 				player.y = 1500
 				timer = 2
@@ -298,6 +323,11 @@ function love.update(dt)
 	        elseif love.keyboard.isDown("s") and player.y < 600-heightoffset then
 	            player.y = player.y + player.speed*dt
 	        end
+            
+            --update player thrusters
+            player.thruster:setPosition(player.x, player.y+heightoffset)
+            player.thruster:start()
+            player.thruster:update(dt)
 			
 			if timer <= 0 then
 				if enemies.tocreate > 0 then
@@ -310,7 +340,7 @@ function love.update(dt)
 					currentwave = currentwave+1
 					enemies.tocreate = stage*currentwave
 				end
-                if #projectiles.debris <= 2 then
+                if #projectiles.debris <= 1 then
                     createRandAsteroid()
                 end
 				if player.health <= 0 then
@@ -366,7 +396,7 @@ function love.update(dt)
                 local astroheightoffset = debris[v.type].height*v.scale/2
                 
                 --Check for debris-player collision
-                if circRectCollision(player.x,player.y, widthoffset, heightoffset, v.position.x+astrowidthoffset, v.position.y+astrowidthoffset, (astrowidthoffset+astroheightoffset)/2) then
+                if circRectCollision(player.x,player.y, widthoffset/2, heightoffset, v.position.x+astrowidthoffset, v.position.y+astrowidthoffset, (astrowidthoffset+astroheightoffset)/2) then
                     player.health = 0
                 end
             end
@@ -379,7 +409,7 @@ function love.update(dt)
                 --Check for enemy-player
 				if rectRectCollision(v.x, v.y, enemies.types[v.type].width, enemies.types[v.type].height,player.x-widthoffset/2, player.y, widthoffset, heightoffset) then
                     player.health = player.health - v.maxhealth
-					v.health = 0
+					v.collide = true
 				end
                 
                 for n,c in ipairs(projectiles.debris) do
@@ -389,15 +419,22 @@ function love.update(dt)
                     local enemywidth = enemies.types[v.type].width*v.scale.x
 					local enemyheight = enemies.types[v.type].height*v.scale.y
                     if circRectCollision(v.x, v.y, enemies.types[v.type].width, enemies.types[v.type].height, c.position.x+widthoffset, c.position.y+heightoffset, (widthoffset+heightoffset)/2) then
-                        v.live = false
+                        v.collide = true
                     end
                 end
 	        end
 	        
+            local randint = math.random
+            local deg = math.deg
 	        for i,v in ipairs(projectiles.playershots) do
 	            --update projectile movement
-	            v.position.y = v.position.y - lengthdir_y(v.v, math.deg(v.direction))*dt
-	            v.position.x = v.position.x + lengthdir_x(v.v, math.deg(v.direction))*dt
+	            v.position.y = v.position.y - lengthdir_y(v.v, deg(v.direction))*dt
+	            v.position.x = v.position.x + lengthdir_x(v.v, deg(v.direction))*dt
+                systems[i]:setPosition(v.position.x, v.position.y)
+                systems[i]:setDirection(-v.position.x, -v.position.y)
+                systems[i]:setTangentialAcceleration((randint()-0.5)*1000)
+                systems[i]:start()
+                systems[i]:update(dt)
 	
 	            --update projectile speed
 	            if v.v < 250 then
@@ -436,10 +473,10 @@ function love.update(dt)
 				if enemies.onscreen[i].health <= 0 and enemies.onscreen[i].y < 664 then
 					player.score = player.score + enemies.onscreen[i].score
 					table.insert(powerups.onscreen, {type=1,ammo=enemies.onscreen[i].ammo, x=enemies.onscreen[i].x+enemies.types[enemies.onscreen[i].type].width/2, y=enemies.onscreen[i].y, live=true})
-					local expl = {animation = newAnimation(explosion, 128, 128, 0.2, 10), x=enemies.onscreen[i].x+enemies.types[enemies.onscreen[i].type].width/2-explosionwidth, y=enemies.onscreen[i].y+enemies.types[enemies.onscreen[i].type].height/2-explosionheight, live=true}
-					expl.animation:setMode("once")
-					table.insert(explosions, expl)
-                    addSound(sounds.explosion)
+					createExplosion(enemies.onscreen[i].x+enemies.types[enemies.onscreen[i].type].width/2, enemies.onscreen[i].y+enemies.types[enemies.onscreen[i].type].height/2)
+					table.remove(enemies.onscreen, i)
+                elseif enemies.onscreen[i].collide == true then
+                    createExplosion(enemies.onscreen[i].x+enemies.types[enemies.onscreen[i].type].width/2, enemies.onscreen[i].y+enemies.types[enemies.onscreen[i].type].height/2)
 					table.remove(enemies.onscreen, i)
 				elseif enemies.onscreen[i].y >= 664 or enemies.onscreen[i].live == false then
                     table.remove(enemies.onscreen, i)
@@ -457,6 +494,8 @@ function love.update(dt)
 			for i=#projectiles.playershots, 1,-1 do
 				if projectiles.playershots[i].live == false then
 					table.remove(projectiles.playershots, i)
+                    systems[i]:stop()
+                    table.remove(systems, i)
 				end
 			end
 	        for i=#powerups.onscreen, 1, -1 do
@@ -479,15 +518,10 @@ function love.draw()
     love.graphics.draw(earth.image, 411, 1338, math.rad(earth.rotation), 1, 1, 1024, 1024)
     if debugmode then
 		love.graphics.print("FPS: "..love.timer.getFPS(), 10, 20)
-		love.graphics.print( "Mouse X: ".. love.mouse.getX(), 10, 35 )
-		love.graphics.print( "Mouse Y: ".. love.mouse.getY(), 10, 50 )
-		love.graphics.print( "Enemies: ".. #enemies.onscreen, 10, 65)
-		love.graphics.print( "Enemies.tocreate: ".. enemies.tocreate, 10, 80 )
-		love.graphics.print( "Stage: ".. stage, 10, 95)
-		love.graphics.print( "Wave: ".. currentwave.."/"..waves, 10, 110)
-        love.graphics.print( "Asteroids: ".. #projectiles.debris, 10, 125)
-        for i,v in ipairs(projectiles.debris) do
-            love.graphics.print(i..": ("..string.format("%.0f", v.position.x)..", "..string.format("%.0f", v.position.y)..")", 10, 125+i*15 )
+		love.graphics.print( "Enemies: ".. #enemies.onscreen, 10, 35)
+        love.graphics.print( "Debris: ".. #projectiles.debris, 10, 50 )
+        for i,v in ipairs(systems) do
+            love.graphics.print(i..": ("..string.format("%.0f", v:getX())..", "..string.format("%.0f", v:getY())..")", 10, 50+i*15 )
         end
     end
     
@@ -504,6 +538,11 @@ function love.draw()
             love.graphics.draw(titlemenu.help, 400-titlemenu.width/2+mx, 270+titlemenu.height)
             love.graphics.draw(titlemenu.quit, 400-titlemenu.width/2-mx, 290+titlemenu.height*2)
         end
+        love.graphics.setColorMode("modulate")
+        love.graphics.setBlendMode("additive")
+        love.graphics.draw(player.thruster, 0, 0)
+        love.graphics.setBlendMode("alpha")
+        love.graphics.setColorMode("replace")
         
     elseif gamemode == "startgame" then
         
@@ -514,6 +553,12 @@ function love.draw()
         love.graphics.print(player.health.."%", 65, mx+83)
         love.graphics.print(player.ammo, 215, mx+83)
         love.graphics.printf(player.score, 650, 600-mx-75, 130, "right")
+        
+        love.graphics.setColorMode("modulate")
+        love.graphics.setBlendMode("additive")
+        love.graphics.draw(player.thruster, 0, 0)
+        love.graphics.setBlendMode("alpha")
+        love.graphics.setColorMode("replace")
         
     elseif gamemode == "game" then
     
@@ -527,6 +572,12 @@ function love.draw()
         elseif player.state == "right" then
             love.graphics.draw(player.images.right.sprite, player.x, player.y, 0, 1,1, player.images.normal.width/2, 0)
         end
+        --Draw player thruster
+        love.graphics.setColorMode("modulate")
+        love.graphics.setBlendMode("additive")
+        love.graphics.draw(player.thruster, 0, 0)
+        love.graphics.setBlendMode("alpha")
+        love.graphics.setColorMode("replace")
         
         --Draw all powerups
         for i,v in ipairs(powerups.onscreen) do
@@ -551,6 +602,12 @@ function love.draw()
         --Draw all projectiles
         for i,v in ipairs(projectiles.playershots) do
             love.graphics.draw(player.images.shot.sprite, v.position.x, v.position.y, v.direction, 1, 1, player.images.shot.width/2, player.images.shot.height/2)
+            love.graphics.setColorMode("modulate")
+            love.graphics.setBlendMode("additive")
+            love.graphics.draw(systems[i], 0, 0)
+            love.graphics.draw(player.thruster, 0, 0)
+            love.graphics.setBlendMode("alpha")
+            love.graphics.setColorMode("replace")
         end
         
         --Draw all debris
@@ -661,6 +718,16 @@ function love.keypressed(key)
     if key == " " then
 		table.insert(enemies.onscreen, createRandEnemy())
     end
+    
+    if key == "m" then
+        if mute == false then
+            love.audio.pause()
+            mute = true
+        else
+            love.audio.resume()
+            mute = false
+        end
+    end
 end
 
 function love.mousereleased(x, y, button)
@@ -701,6 +768,7 @@ function love.mousereleased(x, y, button)
 	                live = true,
 	                power = 15
 	            })
+                createFireball(player.x, player.y)
 	            addSound(sounds.rlaunch)
 	            player.ammo = player.ammo-1
 	            shotdelay=0.5
