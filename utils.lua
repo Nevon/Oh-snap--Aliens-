@@ -102,6 +102,20 @@ function createFireball(x,y)
     table.insert(systems, _p)
 end
 
+function createPowerup()
+    local randint = math.random
+    local _rand = randint(1,100)
+    local _ammo = 1
+    local _type = 0
+    if _rand % 13 ~= 0 then
+        _type = 1
+    else 
+        _type = randint(2, #powerups.types)
+        _ammo = 0
+    end
+    return {type=_type,ammo=_ammo, x, y, live=true}
+end
+
 function circRectCollision(enemyx, enemyy, enemywidth, enemyheight, pointx, pointy, radius)
 	local pow = math.pow
 	local root = math.sqrt

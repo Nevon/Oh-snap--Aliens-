@@ -46,7 +46,9 @@ function love.load()
     explosions = {}
     ui = {
         health = love.graphics.newImage("images/health.png"),
-        ammo = love.graphics.newImage("images/ammo.png")
+        ammo = love.graphics.newImage("images/ammo.png"),
+        map = love.graphics.newImage("images/earthmap.png"),
+        mapoverlay = love.graphics.newImage("images/earthmapoverlay.png")
     }
     powerups = {
 		types = {
@@ -54,7 +56,12 @@ function love.load()
 				name = "ammo",
 				sprite = love.graphics.newImage("images/ammopack.png"),
 				width, height
-			}
+			},
+            {
+                name = "shield",
+                sprite = love.graphics.newImage("images/powerups/shield.png"),
+                width, height
+            }
 		},
 		onscreen = {}
     }
@@ -113,24 +120,29 @@ function love.load()
     timer = 0
     debugmode = false
     mute = false
+    passedenemies = 0
     player = {
         images = {
             normal = {
                 sprite = love.graphics.newImage("images/ship/n.png"),
-                width, height
+                width=64, height=64
             },
             left =  {
                 sprite = love.graphics.newImage("images/ship/l.png"),
-                width, height
+                width=64, height=64
             },
             right = {
                 sprite = love.graphics.newImage("images/ship/r.png"),
-                width, height
+                width=64, height=64
             },
             shot = {
                 sprite = love.graphics.newImage("images/shot.png"),
-                width, height
+                width=8, height=8
             },
+            shield = {
+                sprite = love.graphics.newImage("images/ship/forcefield.png"),
+                width=128, height=128
+            }
         },
         x=400,
         y=650,
@@ -139,17 +151,11 @@ function love.load()
         score = 0,
         state = "normal",
         speed = 200,
+        shieldtimer = 0,
+        shieldrotation = 0,
         live = true,
         thruster = love.graphics.newParticleSystem(particle, 200)
     }
-    player.images.normal.width = player.images.normal.sprite:getWidth()
-    player.images.normal.height = player.images.normal.sprite:getHeight()
-    player.images.left.width = player.images.left.sprite:getWidth()
-    player.images.left.height = player.images.left.sprite:getHeight()
-    player.images.right.width = player.images.right.sprite:getWidth()
-    player.images.right.height = player.images.right.sprite:getHeight()
-    player.images.shot.width = player.images.shot.sprite:getWidth()
-    player.images.shot.height = player.images.shot.sprite:getHeight()
     
     --Configure thruster particle system
     player.thruster:setEmissionRate(50)
@@ -205,7 +211,8 @@ function love.load()
         "Escape to pause.",
         "M to mute the music",
         " ",
-        "Kill aliens to get more ammo"
+        "Kill aliens to get more ammo",
+        "Make sure you don't let too many of them past you. Earths land-based defences can only take so much."
     }
 	
 	--initialize sounds
@@ -324,6 +331,12 @@ function love.update(dt)
 	            player.y = player.y + player.speed*dt
 	        end
             
+            --update powerup timers
+            if player.shieldtimer > 0 then
+                player.shieldtimer = player.shieldtimer - dt
+                player.shieldrotation = player.shieldrotation+67*dt
+            end
+            
             --update player thrusters
             player.thruster:setPosition(player.x, player.y+heightoffset)
             player.thruster:start()
@@ -343,7 +356,7 @@ function love.update(dt)
                 if #projectiles.debris <= 1 then
                     createRandAsteroid()
                 end
-				if player.health <= 0 then
+				if player.health <= 0 or passedenemies >= 17 then
 					gamemode = "gameover"
 				end
 			end
@@ -397,7 +410,9 @@ function love.update(dt)
                 
                 --Check for debris-player collision
                 if circRectCollision(player.x,player.y, widthoffset/2, heightoffset, v.position.x+astrowidthoffset, v.position.y+astrowidthoffset, (astrowidthoffset+astroheightoffset)/2) then
-                    player.health = 0
+                    if player.shieldtimer <= 0 then
+                        player.health = 0
+                    end
                 end
             end
 	        
@@ -408,7 +423,9 @@ function love.update(dt)
 				
                 --Check for enemy-player
 				if rectRectCollision(v.x, v.y, enemies.types[v.type].width, enemies.types[v.type].height,player.x-widthoffset/2, player.y, widthoffset, heightoffset) then
-                    player.health = player.health - v.maxhealth
+                    if player.shieldtimer <= 0 then
+                        player.health = player.health - v.maxhealth
+                    end
 					v.collide = true
 				end
                 
@@ -472,13 +489,27 @@ function love.update(dt)
 	        for i=#enemies.onscreen,1,-1 do --do this again with projectiles.playershots
 				if enemies.onscreen[i].health <= 0 and enemies.onscreen[i].y < 664 then
 					player.score = player.score + enemies.onscreen[i].score
-					table.insert(powerups.onscreen, {type=1,ammo=enemies.onscreen[i].ammo, x=enemies.onscreen[i].x+enemies.types[enemies.onscreen[i].type].width/2, y=enemies.onscreen[i].y, live=true})
-					createExplosion(enemies.onscreen[i].x+enemies.types[enemies.onscreen[i].type].width/2, enemies.onscreen[i].y+enemies.types[enemies.onscreen[i].type].height/2)
+                    
+                    local _pwrup = createPowerup(math.random(1, #powerups.types))
+                    _pwrup.x = enemies.onscreen[i].x+enemies.types[enemies.onscreen[i].type].width/2
+                    _pwrup.y = enemies.onscreen[i].y
+                    if _pwrup.ammo ~= 0 then
+                        _pwrup.ammo = enemies.onscreen[i].ammo
+                    end
+					table.insert(powerups.onscreen, _pwrup)
+					
+                    
+                    createExplosion(enemies.onscreen[i].x+enemies.types[enemies.onscreen[i].type].width/2, enemies.onscreen[i].y+enemies.types[enemies.onscreen[i].type].height/2)
 					table.remove(enemies.onscreen, i)
                 elseif enemies.onscreen[i].collide == true then
                     createExplosion(enemies.onscreen[i].x+enemies.types[enemies.onscreen[i].type].width/2, enemies.onscreen[i].y+enemies.types[enemies.onscreen[i].type].height/2)
 					table.remove(enemies.onscreen, i)
 				elseif enemies.onscreen[i].y >= 664 or enemies.onscreen[i].live == false then
+                    if enemies.onscreen[i].y >= 664 then
+                        if passedenemies < 17 then
+                            passedenemies = passedenemies+1
+                        end
+                    end
                     table.remove(enemies.onscreen, i)
                 end
 			end
@@ -501,7 +532,11 @@ function love.update(dt)
 	        for i=#powerups.onscreen, 1, -1 do
 				if rectRectCollision(powerups.onscreen[i].x, powerups.onscreen[i].y, powerups.types[powerups.onscreen[i].type].width,powerups.types[powerups.onscreen[i].type].height, player.x-widthoffset/2, player.y, widthoffset, heightoffset) then
 					powerups.onscreen[i].live = false
-					player.ammo = player.ammo + powerups.onscreen[i].ammo
+                    if powerups.onscreen[i].type == 1 then
+                        player.ammo = player.ammo + powerups.onscreen[i].ammo
+                    elseif powerups.onscreen[i].type == 2 then
+                        player.shieldtimer = 10
+                    end
 				end
 				if powerups.onscreen[i].live == false then
 					table.remove(powerups.onscreen, i)
@@ -520,8 +555,9 @@ function love.draw()
 		love.graphics.print("FPS: "..love.timer.getFPS(), 10, 20)
 		love.graphics.print( "Enemies: ".. #enemies.onscreen, 10, 35)
         love.graphics.print( "Debris: ".. #projectiles.debris, 10, 50 )
+        love.graphics.print( "Shield timer: ".. string.format("%.00f",player.shieldtimer), 10, 65 )
         for i,v in ipairs(systems) do
-            love.graphics.print(i..": ("..string.format("%.0f", v:getX())..", "..string.format("%.0f", v:getY())..")", 10, 50+i*15 )
+            love.graphics.print(i..": ("..string.format("%.0f", v:getX())..", "..string.format("%.0f", v:getY())..")", 10, 65+i*15 )
         end
     end
     
@@ -538,11 +574,6 @@ function love.draw()
             love.graphics.draw(titlemenu.help, 400-titlemenu.width/2+mx, 270+titlemenu.height)
             love.graphics.draw(titlemenu.quit, 400-titlemenu.width/2-mx, 290+titlemenu.height*2)
         end
-        love.graphics.setColorMode("modulate")
-        love.graphics.setBlendMode("additive")
-        love.graphics.draw(player.thruster, 0, 0)
-        love.graphics.setBlendMode("alpha")
-        love.graphics.setColorMode("replace")
         
     elseif gamemode == "startgame" then
         
@@ -553,6 +584,13 @@ function love.draw()
         love.graphics.print(player.health.."%", 65, mx+83)
         love.graphics.print(player.ammo, 215, mx+83)
         love.graphics.printf(player.score, 650, 600-mx-75, 130, "right")
+        love.graphics.setColor(19,193,35,77)
+        love.graphics.rectangle("fill", 613, mx+28, 157, 64)
+        love.graphics.draw(ui.map, 613, mx+28)
+        love.graphics.setColorMode('modulate')
+        love.graphics.setColor(255,255,255,255-passedenemies*15)
+        love.graphics.draw(ui.mapoverlay, 613, mx+28)
+        love.graphics.setColorMode('replace')
         
         love.graphics.setColorMode("modulate")
         love.graphics.setBlendMode("additive")
@@ -577,6 +615,9 @@ function love.draw()
             love.graphics.draw(player.images.left.sprite, player.x, player.y, 0, 1,1, player.images.normal.width/2, 0)
         elseif player.state == "right" then
             love.graphics.draw(player.images.right.sprite, player.x, player.y, 0, 1,1, player.images.normal.width/2, 0)
+        end
+        if player.shieldtimer > 0 then
+            love.graphics.draw(player.images.shield.sprite, player.x, player.y+player.images.normal.height/2, math.rad(player.shieldrotation), 1, 1, player.images.shield.width/2, player.images.shield.height/2)
         end
         
         --Draw all powerups
@@ -625,6 +666,7 @@ function love.draw()
 			v.animation:draw(v.x,v.y)
 		end
 
+        --Draw UI
         love.graphics.draw(ui.health, 30,mx+60)
         love.graphics.draw(ui.ammo, 180, mx+60)
         love.graphics.setFont(fonts.title.larger)
@@ -635,29 +677,42 @@ function love.draw()
 		end
         love.graphics.print(player.ammo, 215, mx+83)
         love.graphics.printf(player.score, 650, 600-mx-75, 130, "right")
+        love.graphics.setColor(19,193,35,77)
+        love.graphics.rectangle("fill", 613, mx+28, 157, 64)
+        love.graphics.draw(ui.map, 613, mx+28)
+        love.graphics.setColorMode('modulate')
+        love.graphics.setColor(255,255,255,255-passedenemies*15)
+        love.graphics.draw(ui.mapoverlay, 613, mx+28)
+        love.graphics.setColorMode('replace')
     
     elseif gamemode == "gameover" then
 		love.graphics.setFont(fonts.title.larger)
 		love.graphics.print("GAME OVER", 300, 150)
-        love.graphics.print("Score: "..player.score, 300, 190)
-        love.graphics.print("Rank:", 300, 250)
+        love.graphics.print("Everyone on earth is dead.", 200, 190)
+        if passedenemies >= 17 then
+            love.graphics.print("Too many aliens got past you.", 200, 210)
+        else
+            love.graphics.print("You just weren't strong enough.", 200, 210)
+        end
+        love.graphics.print("Score: "..player.score, 300, 260)
+        love.graphics.print("Rank:", 300, 2900)
         local level = round(player.score/3000,0)
         love.graphics.setFont(fonts.title.largest)
         
         if level <= #ranks and level ~= 0 then
 			local rank = ranks[level]
-			love.graphics.draw(rank.image, 320, 270)
+			love.graphics.draw(rank.image, 320, 310)
 			local ranklength = fonts.title.largest:getWidth(rank.name)
-			love.graphics.printf(rank.name, 400-ranklength/2, 480, 725, "left")
+			love.graphics.printf(rank.name, 400-ranklength/2, 520, 725, "left")
 		elseif level == 0 then
 			local rank = "Airman Basic"
 			local ranklength = fonts.title.largest:getWidth(rank)
-			love.graphics.printf(rank, 400-ranklength/2, 290, 725, "left")
+			love.graphics.printf(rank, 400-ranklength/2, 330, 725, "left")
 		elseif level > #ranks then
 			local rank = ranks[#ranks]
-			love.graphics.draw(rank.image, 320, 270)
+			love.graphics.draw(rank.image, 320, 310)
 			local ranklength = fonts.title.largest:getWidth(rank.name)
-			love.graphics.printf(rank.name, 400-ranklength/2, 352, 725, "left")
+			love.graphics.printf(rank.name, 400-ranklength/2, 392, 725, "left")
 		end
     end
     
@@ -713,6 +768,14 @@ function love.keypressed(key)
     
     if key == "l" then
         createRandAsteroid()
+    end
+    
+    if key == "b" then
+        if player.shieldtimer > 0 then
+            player.shieldtimer = 0
+        else
+            player.shieldtimer = 99999
+        end
     end
     
     if key == " " then
